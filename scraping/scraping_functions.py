@@ -9,7 +9,7 @@ def grab_ids(season, page):
     soup = BeautifulSoup(content, 'html.parser')
 
     player_links = soup.find_all('td', {'data-title':'Player'})
-    mls_ids = [player.find('a')['href'].split("/",2)[2] for player in player_links]
+    mls_ids = [player.find('a')['href'].split("/",2)[2] for player in player_links if player.find('a') is not None]
     return mls_ids
 
 # grab player stats for a given mls website id
@@ -25,7 +25,7 @@ def grab_player_stats(mls_id):
         season_table = stats_table_list[0]
     else:
         print("Invalid ID: " + mls_id)
-        return;
+        return []e;
     
     ### Grab all the basic player info ######
     name_list = soup.find_all('div', 'name')
