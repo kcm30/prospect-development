@@ -67,7 +67,7 @@ prospect.season[is.na(mls2flag), mls2flag := 0]
 ## write person-level dataset
 person.level <- prospect.season[year == first.yr, ]
 ## calculate duration in the league
-person.level[is.na(starter.yr), duration := last.yr - first.yr + 1]
+person.level[is.na(starter.yr), duration := 2016 - first.yr + 1]
 person.level[is.na(starter.yr), event := 0]
 person.level[is.na(duration), event := 1]
 person.level[is.na(duration), duration := starter.yr - first.yr + 1]
@@ -77,12 +77,27 @@ colnames(person.level)[3] <- "club"
 fwrite(person.level, "../person_level.csv")
 
 ## write person-period dataset
+## gotta fill in with teams when player is out of league
+## also gotta keep a column for age of player
 prospect.season$start.yr <- NULL
-person.period <- prospect.season[starter.yr >= year | is.na(starter.yr), ]
+## add a missing record for every year, then prune down if
+## that year is before first.yr or after starter.yr or already in data
+ids <- unique(prospect.season$mls_id)
+count <- length(ids)
+dropped.records <- data.table(mls_id = rep(ids, 10), year = c(rep(2007, count), rep(2008, count), rep(2009, count), rep(2010, count), rep(2011, count), rep(2012, count), rep(2013, count), rep(2014, count), rep(2015, count), rep(2016, count)))
+player.info <- unique(prospect.season[, c("mls_id", "first.yr", "entry.age", "position", "hgflag", "draftflag", "mls2flag", "pick", "starter.yr"), with = FALSE])[!(mls_id == 'cameron-porter' & mls2flag == 0), ]
+dropped.records <- merge(dropped.records, player.info, by = 'mls_id')
+person.period <- merge(dropped.records, prospect.season, by = c('mls_id', 'year', 'first.yr','entry.age','position','hgflag','draftflag','mls2flag','pick','starter.yr'), all.x = TRUE)
+# drop the records that don't make sense
+person.period <- person.period[(starter.yr >= year & year >= first.yr) | (is.na(starter.yr) & year >= first.yr), ]
+## prune to the columns we care about
+person.period <- person.period[, c("mls_id", "year", "first.yr", "entry.age", "position", "hgflag", "draftflag", "mls2flag", "pick", "V1", "age", "starter.yr"), with = FALSE]
+# fill in the columns that were added
+person.period[is.na(V1), V1 := 'out-of-league']
 person.period[, duration := year - first.yr + 1]
+person.period[is.na(age), age := entry.age + duration - 1]
 person.period[starter.yr == year, event := 1]
 person.period[is.na(event), event := 0]
-person.period <- person.period[, keep.cols, with = FALSE][order(mls_id)]
-colnames(person.period)[3] <- "club"
+
+colnames(person.period)[10] <- "club"
 fwrite(person.period, "../person_period.csv")
-## how to handle players switching teams here?
